@@ -75,6 +75,9 @@ apps = [
     'doom2',
     'gpsp',
     'yui',
+
+    #lvglapp
+    # 'lvglapp'
 ]
 
 em_apps=[]

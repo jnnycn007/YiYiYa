@@ -13,20 +13,24 @@ raspi3:
 i386-pc:
 	ya -m debug -r qemu -p i386-pc
 
-dump-raspi3:
+raspi3-d:
 	aarch64-none-elf-objdump -D build/raspi3/armv8-a/debug/kernel.elf >kernel.txt.c
-dump-raspi3-ls:
+raspi3-ls-d:
 	aarch64-none-elf-objdump -D build/raspi3/armv8-a/debug/ls  >ls.txt.c
 esp32:
 	ya -m debug -p esp32 -r esp32
 
-clean-esp32:
+esp32-c:
 	rm -rf build/esp32/lx6/debug/objs/
+
+esp32-d:
+	xtensa-esp32-elf-objdump -D build/esp32/lx6/debug/kernel.elf >kernel.txt.c
+
 stm32:
 	ya -m debug -p stm32f4xx -r stm32f4xx -app
-clean-stm32:
+stm32-c:
 	rm -rf build/stm32f4xx/armv7/debug/objs/
-dump-stm32:
+stm32-d:
 	arm-none-eabi-objdump -D build/stm32f4xx/armv7/debug/kernel.elf >kernel.txt.c
 img:
 	qemu-img create  image/disk.img 512m
