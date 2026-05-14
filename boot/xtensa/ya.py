@@ -13,9 +13,13 @@ else:
     target("boot-init.elf")
     ## set_extensions(".h",".o")
     add_deps('boot-config')
+    add_cflags("-mlongcalls", "-mtext-section-literals", "-mabi=call0")
+    add_asflags("-mlongcalls", "-mtext-section-literals", "-mabi=call0")
+    add_ldflags("-mlongcalls", "-mtext-section-literals", "-mabi=call0", force = true)
 
     add_files(
         'boot.s',
+        'vectors.s',
         'init.c'
     )
     add_includedirs(
@@ -25,7 +29,7 @@ else:
     )
 
 
-    add_ldflags("-T"+path.join(os.scriptdir(), "../xtensa/link-{plat}.ld"), force = true)
+    add_ldflags("-T"+path.join(os.scriptdir(), "../xtensa/link.ld"), force = true)
 
     add_rules('objcopy-file')
         

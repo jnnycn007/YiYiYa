@@ -2,6 +2,17 @@
 
 typedef int esp_err_t;
 
+#define TIMG0_BASE 0x3FF5F000
+#define TIMG1_BASE 0x3FF60000
+#define RTC_CNTL_BASE 0x3FF48000
+
+#define TIMG_WDTCONFIG0_OFFSET 0x48
+#define TIMG_WDTWPROTECT_OFFSET 0x64
+#define RTC_CNTL_WDTCONFIG0_OFFSET 0x8C
+#define RTC_CNTL_WDTWPROTECT_OFFSET 0xA4
+
+#define WDT_WKEY_VALUE 0x50D83AA1
+
 /* Definitions for error constants. */
 #define ESP_OK 0    /*!< esp_err_t value indicating success (no error) */
 #define ESP_FAIL -1 /*!< Generic esp_err_t code indicating failure */
@@ -89,6 +100,34 @@ static inline uint32_t mpu_ll_id_to_addr(unsigned id) {
   return id * SOC_MPU_MIN_REGION_SIZE;
 }
 
+static inline void reg_write(uint32_t addr, uint32_t value) {
+  *((volatile uint32_t*)addr) = value;
+}
+
+static inline uint32_t reg_read(uint32_t addr) {
+  return *((volatile uint32_t*)addr);
+}
+
+static inline void disable_timg_wdt(uint32_t base) {
+  reg_write(base + TIMG_WDTWPROTECT_OFFSET, WDT_WKEY_VALUE);
+  reg_write(base + TIMG_WDTCONFIG0_OFFSET,
+            reg_read(base + TIMG_WDTCONFIG0_OFFSET) & ~1U);
+  reg_write(base + TIMG_WDTWPROTECT_OFFSET, 0);
+}
+
+static inline void disable_rtc_wdt(void) {
+  reg_write(RTC_CNTL_BASE + RTC_CNTL_WDTWPROTECT_OFFSET, WDT_WKEY_VALUE);
+  reg_write(RTC_CNTL_BASE + RTC_CNTL_WDTCONFIG0_OFFSET,
+            reg_read(RTC_CNTL_BASE + RTC_CNTL_WDTCONFIG0_OFFSET) & ~1U);
+  reg_write(RTC_CNTL_BASE + RTC_CNTL_WDTWPROTECT_OFFSET, 0);
+}
+
+static inline void bootloader_disable_wdts(void) {
+  disable_rtc_wdt();
+  disable_timg_wdt(TIMG0_BASE);
+  disable_timg_wdt(TIMG1_BASE);
+}
+
 void mpu_hal_set_region_access(int id, mpu_access_t access) {
   uint32_t addr = mpu_ll_id_to_addr(id);
 
@@ -145,6 +184,7 @@ void bootloader_init_mem(void) {
 esp_err_t bootloader_init(void) {
   esp_err_t ret = ESP_OK;
 
+  bootloader_disable_wdts();
   bootloader_init_mem();
 
   // clear bss section

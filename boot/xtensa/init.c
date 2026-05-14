@@ -9,14 +9,15 @@
 #include "esp32.h"
 #endif
 #include "gpio.h"
+#include "soc/uart_reg.h"
 
 static boot_info_t* boot_info = NULL;
 static boot_info_t boot_data;
+static char* kernel_envp[2];
 
 typedef int (*entry)(int, char**, char**);
 typedef void (*rom_write_char_uart_fn)(char c);
 typedef u32 (*rom_spiflash_read_fn)(u32 src, u32* des, u32 len);
-typedef int (*rom_printf_fn)(const char* fmt, ...);
 typedef unsigned int (*rom_cache_flash_mmu_set_fn)(int cpu_no, int pid,
                                                    unsigned int vaddr,
                                                    unsigned int paddr,
@@ -25,10 +26,10 @@ typedef void (*rom_cache_read_enable_fn)(int cpu_no);
 
 typedef void (*rom_cache_flush_fn)(int cpu_no);
 typedef void (*rom_cache_read_disable_fn)(int cpu_no);
+typedef void (*kernel_entry_fn)(int argc, char** argv, char** envp);
 
 volatile unsigned char* const UART0_PTR = (unsigned char*)0x0101f1000;
 
-rom_printf_fn printf = 0x40007d54;
 rom_spiflash_read_fn disk_read_lba = 0x40062ed8;
 rom_write_char_uart_fn esp_send = 0x40007cf8;
 rom_cache_flash_mmu_set_fn cache_flash_mmu_set = 0x400095e0;
@@ -40,6 +41,8 @@ extern int _bss_start;
 extern int _bss_end;
 extern int _data_start;
 extern int _data_end;
+extern void boot_jump_to_kernel(kernel_entry_fn entry, int argc, char** argv,
+                                char** envp);
 
 void io_write32(uint port, u32 data) { *(u32*)port = data; }
 
@@ -54,7 +57,23 @@ void init_uart() {
   u32 val;
 }
 
-void uart_send_ch(u8 c) { esp_send(c); }
+static inline void early_uart_send_ch(u8 c) {
+  *(volatile u32*)UART_FIFO_REG(0) = c;
+}
+
+#define BOOT_PUTC(ch) (*(volatile u32*)UART_FIFO_REG(0) = (u8)(ch))
+#define BOOT_NL()     \
+  do {                \
+    BOOT_PUTC('\r');  \
+    BOOT_PUTC('\n');  \
+  } while (0)
+
+void uart_send_ch(u8 c) {
+  if (c == '\n') {
+    early_uart_send_ch('\r');
+  }
+  early_uart_send_ch(c);
+}
 
 char uart_getc() {
   // char r;
@@ -78,6 +97,41 @@ void getch() { uart_getc(); }
 static void print_char(char s) { uart_send_ch(s); }
 
 void display(const char* string) { print_string(string); }
+
+static void print_hex32(u32 value) {
+  static const char hex[] = "0123456789abcdef";
+  for (int shift = 28; shift >= 0; shift -= 4) {
+    uart_send_ch(hex[(value >> shift) & 0xF]);
+  }
+}
+
+static void print_label_hex(const char* label, u32 value) {
+  print_string((const unsigned char*)label);
+  print_hex32(value);
+  uart_send_ch('\n');
+}
+
+static void print_triplet_hex(const char* label, u32 v1, u32 v2, u32 v3) {
+  print_string((const unsigned char*)label);
+  print_hex32(v1);
+  uart_send_ch(' ');
+  print_hex32(v2);
+  uart_send_ch(' ');
+  print_hex32(v3);
+  uart_send_ch('\n');
+}
+
+static void print_quad_hex(const char* label, u32 v1, u32 v2, u32 v3, u32 v4) {
+  print_string((const unsigned char*)label);
+  print_hex32(v1);
+  uart_send_ch(' ');
+  print_hex32(v2);
+  uart_send_ch(' ');
+  print_hex32(v3);
+  uart_send_ch(' ');
+  print_hex32(v4);
+  uart_send_ch('\n');
+}
 
 void init_boot_info() {
   boot_info = &boot_data;
@@ -117,11 +171,11 @@ void init_memory() {
   boot_info->memory_number = count;
   // page setup
 }
-void init_cpu() {
+static inline void init_cpu() {
   // enable cr0
 }
 
-void read_kernel() {
+static inline void read_kernel() {
   // #ifdef KERNEL_MOVE
   //   u32 addr = boot_info->kernel_origin_base;
   // #else
@@ -150,53 +204,52 @@ void* memmove32(void* s1, const void* s2, u32 n) {
   }
 }
 
+void* boot_memset32(void* dest, int c, size_t n) {
+  // Early boot only clears aligned sections. Keep this simple and ROM-free.
+  int i;
+  u32 word = (u32)c;
+  u32* d = (u32*)dest;
+  for (i = 0; i < n / 4; i++) {
+    d[i] = word;
+  }
+  return dest;
+}
+
 void init_boot() {
 
 #ifdef SINGLE_KERNEL
 
 #else
-void* memset(void* dest, int c, size_t n) {
-  // must 32 align will Fatal exception (3): LoadStoreError
-  int i;
-  u32* d = dest;
-  for (i = 0; i < n / 4; i++) {
-    d[i] = c;
-  }
-  return dest;
-}
+  print_string((const unsigned char*)"bootloader init\n");
   bootloader_init();
+  print_string((const unsigned char*)"bootloader init done\n");
 #endif
 
-  memset(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
+  boot_memset32(&_bss_start, 0, (&_bss_end - &_bss_start) * sizeof(_bss_start));
 
+  print_string((const unsigned char*)"bss cleared\n");
   init_uart();
 
   display("hello duck\n");
   init_boot_info();
   display("init boot info end\n");
+  print_label_hex("boot info addr ", (u32)boot_info);
 
-  printf("boot info addr %x\n\r", boot_info);
-
-  print_string("init display\n\r");
+  print_string("init display\n");
   init_display();
 
-  print_string("init memory\n\r");
+  print_string("init memory\n");
   init_memory();
 
-  print_string("init disk\n\r");
+  print_string("init disk\n");
   init_disk();
 
-  print_string("read kernel\n\r");
-
-  read_kernel();
-
-  print_string("init cpu\n\r");
-
-  init_cpu();
-
-  print_string("start kernel\n\r");
-
+  BOOT_PUTC('A'); BOOT_NL();
+  BOOT_PUTC('B'); BOOT_NL();
+  BOOT_PUTC('C'); BOOT_NL();
+  BOOT_PUTC('D'); BOOT_NL();
   start_kernel();
+  BOOT_PUTC('E'); BOOT_NL();
 
   for (;;)
     ;
@@ -206,7 +259,7 @@ void* memset(void* dest, int c, size_t n) {
 
 static void load_elf(Elf32_Ehdr* elf_header) {
   u32 e_phnum = read16(&elf_header->e_phnum);
-  printf("e_phnum:%d\n", e_phnum);
+  print_label_hex("e_phnum ", e_phnum);
   u32 elf = KERNEL_FLASH_ADDR;
   Elf32_Phdr phdr_data[PHDR_NUM];
   Elf32_Phdr* phdr = (elf + elf_header->e_phoff);
@@ -215,23 +268,22 @@ static void load_elf(Elf32_Ehdr* elf_header) {
   // printf("addr %x elf=%x\n\r", phdr, elf);
   u32 entry = 0;
   for (int i = 0; i < e_phnum; i++) {
-    printf("elf type:%d\n\r", phdr[i].p_type);
+    print_label_hex("elf type ", phdr[i].p_type);
     switch (phdr[i].p_type) {
       case PT_NULL:
-        printf(" %s %x %x %x %s %x %x \r\n", "NULL", phdr[i].p_offset,
-               phdr[i].p_vaddr, phdr[i].p_paddr, "", phdr[i].p_filesz,
-               phdr[i].p_memsz);
+        print_quad_hex("null seg ", phdr[i].p_offset, phdr[i].p_vaddr,
+                       phdr[i].p_paddr, phdr[i].p_filesz);
+        print_label_hex("null mem ", phdr[i].p_memsz);
         break;
       case PT_LOAD: {
         if ((phdr[i].p_flags & PF_X) == PF_X) {  // is code
-          printf(" %s %x %x %x %s %x %x flag:%x\r\n", "LOAD", phdr[i].p_offset,
-                 phdr[i].p_vaddr, phdr[i].p_paddr, "", phdr[i].p_filesz,
-                 phdr[i].p_memsz, phdr[i].p_flags);
+          print_quad_hex("load x seg ", phdr[i].p_offset, phdr[i].p_vaddr,
+                         phdr[i].p_paddr, phdr[i].p_filesz);
+          print_triplet_hex("load x mem ", phdr[i].p_memsz, phdr[i].p_flags, 0);
           u32* start = elf + phdr[i].p_offset;
           u32* vaddr = phdr[i].p_vaddr;
           entry = vaddr;
-          printf("  init code start:%x vaddr:%x size:%x \n\r", start, vaddr,
-                 phdr[i].p_memsz);
+          print_triplet_hex("code map ", (u32)start, (u32)vaddr, phdr[i].p_memsz);
           // u32 ret = disk_read_lba(start, vaddr, phdr[i].p_memsz);
 
           u32 irom_load_addr_aligned = (u32)vaddr & MMU_FLASH_MASK;
@@ -248,17 +300,17 @@ static void load_elf(Elf32_Ehdr* elf_header) {
                                     ((u32)start) & MMU_FLASH_MASK, 64,
                                     irom_page_count);
 
-          printf("  end code  vaddr %x  from %x count %d ret=%d\n\r",
-                 irom_load_addr_aligned, start, irom_page_count, rc);
+          print_quad_hex("code mmu ", irom_load_addr_aligned, (u32)start,
+                         irom_page_count, rc);
         } else if ((phdr[i].p_flags & PF_R) == PF_R) {  // is data for write
-          printf(" %s %x %x %x %s %x %x flag:%x\r\n", "LOAD", phdr[i].p_offset,
-                 phdr[i].p_vaddr, phdr[i].p_paddr, "", phdr[i].p_filesz,
-                 phdr[i].p_memsz, phdr[i].p_flags);
+          print_quad_hex("load r seg ", phdr[i].p_offset, phdr[i].p_vaddr,
+                         phdr[i].p_paddr, phdr[i].p_filesz);
+          print_triplet_hex("load r mem ", phdr[i].p_memsz, phdr[i].p_flags, 0);
           u32* start = elf + phdr[i].p_offset;
           u32* vaddr = phdr[i].p_vaddr;
           entry = vaddr;
-          printf("  init rodata start:%x vaddr:%x size:%x \n\r", start, vaddr,
-                 phdr[i].p_memsz);
+          print_triplet_hex("rodata map ", (u32)start, (u32)vaddr,
+                            phdr[i].p_memsz);
           // u32 ret = disk_read_lba(start, vaddr, phdr[i].p_memsz);
           u32 drom_load_addr_aligned = (u32)vaddr & MMU_FLASH_MASK;
           u32 drom_page_count =
@@ -274,12 +326,12 @@ static void load_elf(Elf32_Ehdr* elf_header) {
                                     ((u32)start) & MMU_FLASH_MASK, 64,
                                     drom_page_count);
 
-          printf("  end rodata vaddr %x  from %x count %d ret=%d\n\r",
-                 drom_load_addr_aligned, start, drom_page_count, rc);
+          print_quad_hex("rodata mmu ", drom_load_addr_aligned, (u32)start,
+                         drom_page_count, rc);
         } else {
-          printf(" %s %x %x %x %s %x %x flag:%x\r\n", "LOAD", phdr[i].p_offset,
-                 phdr[i].p_vaddr, phdr[i].p_paddr, "", phdr[i].p_filesz,
-                 phdr[i].p_memsz, phdr[i].p_flags);
+          print_quad_hex("load other ", phdr[i].p_offset, phdr[i].p_vaddr,
+                         phdr[i].p_paddr, phdr[i].p_filesz);
+          print_triplet_hex("load flags ", phdr[i].p_memsz, phdr[i].p_flags, 0);
           u32* start = elf + phdr[i].p_offset;
           u32* vaddr = phdr[i].p_vaddr;
         }
@@ -296,7 +348,7 @@ static void load_elf(Elf32_Ehdr* elf_header) {
   shdr = &shdr_data;
 
   u32 e_shnum = read16(&elf_header->e_shnum);
-  printf("\ne_shnum:%d\n", e_shnum);
+  print_label_hex("e_shnum ", e_shnum);
   for (int i = 0; i < e_shnum; i++) {
     if (SHT_NOBITS == shdr[i].sh_type) {
       u32* vaddr = shdr[i].sh_addr;
@@ -321,11 +373,10 @@ static void load_elf(Elf32_Ehdr* elf_header) {
                (shdr[i].sh_flags & SHF_WRITE == SHF_WRITE)) {
       u32* start = shdr[i].sh_offset;
       u32* vaddr = shdr[i].sh_addr;
-      printf("init load shdr start:%x vaddr:%x size:%x \n\r", start, vaddr,
-             shdr[i].sh_size);
+      print_triplet_hex("load shdr ", (u32)start, (u32)vaddr, shdr[i].sh_size);
       u32* phstart = (u32)elf + shdr[i].sh_offset;
       u32 ret = disk_read_lba(phstart, vaddr, shdr[i].sh_size);
-      printf("ret %d\n", ret);
+      print_label_hex("ret ", ret);
 
       // memset(vaddr, 0, shdr->sh_size);
       // memmove32(phstart, vaddr, shdr[i].sh_size);
@@ -347,23 +398,27 @@ static void load_elf(Elf32_Ehdr* elf_header) {
 
 void print_hex(u32* addr) {
   for (int x = 0; x < 16; x++) {
-    printf("%x ", addr[x]);
+    print_hex32(addr[x]);
+    uart_send_ch(' ');
   }
-  printf("\n\r");
+  uart_send_ch('\n');
 }
 
 void* load_kernel() {
 #ifdef KERNEL_BIN
-  printf("bin kernel\n\r");
+  print_string((const unsigned char*)"load kernel bin\n");
+  print_string((const unsigned char*)"bin kernel\n");
   return elf;
 #else
   Elf32_Ehdr header;
   Elf32_Ehdr* elf_header = (Elf32_Ehdr*)&header;
+  print_string((const unsigned char*)"read kernel header\n");
   disk_read_lba(KERNEL_FLASH_ADDR, elf_header, sizeof(Elf32_Ehdr));
-  printf("parse elf kernel header %x\n", elf_header);
+  print_label_hex("elf header ", (u32)elf_header);
   u32 magic = *(u32*)&elf_header->e_ident;
-  printf("elf magic %x\n", magic);
+  print_label_hex("elf magic ", magic);
   if (magic == 0x464c457f) {
+    print_string((const unsigned char*)"load elf kernel\n");
     // printf("header: ");
     // printf("type:%d\n\r", *(u32*)&elf_header->e_type);
     // printf("e_machine:%d\n\r", elf_header->e_machine);
@@ -375,7 +430,8 @@ void* load_kernel() {
     load_elf(elf_header);
     return elf_header->e_entry;
   } else {
-    printf("bin kernel\n");
+    print_string((const unsigned char*)"raw kernel entry\n");
+    print_string((const unsigned char*)"bin kernel\n");
     return KERNEL_BASE;
   }
 #endif
@@ -387,19 +443,28 @@ void start_kernel() {
   // get_segment();
   extern void kstart(int argc, char* argv[], char** envp);
   entry start = kstart;
-  printf("single kernerl entry %x\n", start);
+  BOOT_PUTC('S'); BOOT_NL();
+  BOOT_PUTC('T'); BOOT_NL();
+  BOOT_PUTC('P'); BOOT_NL();
+  kernel_envp[0] = (char*)&boot_data;
+  BOOT_PUTC('Q'); BOOT_NL();
+  kernel_envp[1] = 0;
+  BOOT_PUTC('R'); BOOT_NL();
+  BOOT_PUTC('I'); BOOT_NL();
+  boot_jump_to_kernel((kernel_entry_fn)start, 0, 0, kernel_envp);
 #else
+  BOOT_PUTC('F'); BOOT_NL();
   cache_read_disable(0);
   cache_flush(0);
 
   for (int i = 0; i < DPORT_FLASH_MMU_TABLE_SIZE; i++) {
     DPORT_PRO_FLASH_MMU_TABLE[i] = DPORT_FLASH_MMU_TABLE_INVALID_VAL;
   }
+  BOOT_PUTC('G'); BOOT_NL();
   boot_info->kernel_entry = load_kernel();
   entry start = boot_info->kernel_entry;
-  printf("kernel entry %x\n", boot_info->kernel_entry);
-#endif
-
+  BOOT_PUTC('H'); BOOT_NL();
+  print_label_hex("kernel entry ", (u32)boot_info->kernel_entry);
   DPORT_REG_CLR_BIT(
       DPORT_PRO_CACHE_CTRL1_REG,
       (DPORT_PRO_CACHE_MASK_IRAM0) | (DPORT_PRO_CACHE_MASK_IRAM1 & 0) |
@@ -414,9 +479,9 @@ void start_kernel() {
 
   cache_read_enable(1);
 
-  int argc = 0;
-  u32** argv = 0;
-  u32* envp[4];
-  envp[0] = boot_info;
-  start(argc, argv, envp);
+  kernel_envp[0] = (char*)&boot_data;
+  kernel_envp[1] = 0;
+  BOOT_PUTC('I'); BOOT_NL();
+  boot_jump_to_kernel((kernel_entry_fn)start, 0, 0, kernel_envp);
+#endif
 }

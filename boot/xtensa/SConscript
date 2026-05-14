@@ -8,8 +8,10 @@ import os
 
 Import('env')               
 
-linkflags=' $LDFLAGS -nostdlib -nostartfiles -T boot/xtensa/link.ld'
-cflags= '$CFLAGS -fno-stack-protector  '
+xtensa_abi_flags = ' -mlongcalls -mtext-section-literals -mabi=call0 '
+linkflags=' $LDFLAGS' + xtensa_abi_flags + ' -nostdlib -nostartfiles -T boot/xtensa/link.ld'
+cflags= '$CFLAGS' + xtensa_abi_flags + ' -fno-stack-protector  '
+asflags= '$ASFLAGS' + xtensa_abi_flags
 include=[
     '.',
     'include',
@@ -21,6 +23,7 @@ include=[
 
 source = [
     'boot.o',
+    'vectors.s',
     'init.c',
     'config.h'
     ]
@@ -36,8 +39,8 @@ if env.get('SINGLE_KERNEL'):
         'init.c',
     ]
     cflags+= ' -DSINGLE_KERNEL '
-    env.Object('boot.o',boot_source,ASFLAGS='$ASFLAGS')
-    env.Object('init.o',source,ASFLAGS='$ASFLAGS $CFLAGS',CPPPATH=include,
+    env.Object('boot.o',boot_source,ASFLAGS=asflags)
+    env.Object('init.o',source,ASFLAGS=asflags + ' $CFLAGS',CPPPATH=include,
         CFLAGS=cflags,
         LINKFLAGS= linkflags)
 else:
@@ -45,6 +48,7 @@ else:
     env.Program(target ='init.elf', source = source,
         CPPPATH=include,
         CFLAGS=cflags,
+        ASFLAGS=asflags,
         LINKFLAGS= linkflags)
 
     env.Objcopy('init.bin','init.elf',OBJCOPYFLAGS='-O binary -S --strip-debug')
