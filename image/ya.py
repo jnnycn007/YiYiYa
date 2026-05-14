@@ -416,7 +416,7 @@ def run(target):
     build_esp32_img(duck_kernel,duck_kernel_bin,kernel_bin_img)
 
 
-    os.shell('esptool.py --chip esp32 --port /dev/cu.wchusbserial141100 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000  '+duck_kernel_bin+'  ')
+    os.shell('esptool.py --chip esp32 --port /dev/cu.wchusbserial141400 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000  '+duck_kernel_bin+'  ')
 
 
 on_run(run)

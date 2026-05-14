@@ -21,7 +21,7 @@ esp32:
 	ya -m debug -p esp32 -r esp32
 
 esp32-c:
-	rm -rf build/esp32/lx6/debug/objs/
+	rm -rf build/esp32/lx6/debug/objs/duck
 
 esp32-d:
 	xtensa-esp32-elf-objdump -D build/esp32/lx6/debug/kernel.elf >kernel.txt.c

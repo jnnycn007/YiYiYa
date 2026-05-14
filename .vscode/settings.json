@@ -123,5 +123,7 @@
     "fixed_dsp.h": "c"
   },
   "git.ignoreLimitWarning": true,
-  "mesonbuild.selectRootDir": false
+  "mesonbuild.selectRootDir": false,
+  "trae.tab.enableRename": false,
+  "trae.tab.enableAutoImport": false
 }
