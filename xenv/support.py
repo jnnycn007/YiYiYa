@@ -48,7 +48,7 @@ support_arch_cflags ={
             '-fno-builtin', '-mcmodel=medany',  
             '-march=rv32imaczicsr','-mabi=ilp32','-DSBI' ],#
     'general':[],
-    'lx6': [],
+    'lx6': ['-mlongcalls','-mtext-section-literals','-mabi=call0','-mlongcalls'],
 }
 
 general_link = []

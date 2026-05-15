@@ -41,6 +41,11 @@ extern int _bss_start;
 extern int _bss_end;
 extern int _data_start;
 extern int _data_end;
+extern int _estack;
+
+#define ESP32_DRAM_LOW  0x3FFC0000U
+#define ESP32_DRAM_HIGH 0x40000000U
+#define ESP32_HEAP_LOW  0x3FFD0000U
 extern void boot_jump_to_kernel(kernel_entry_fn entry, int argc, char** argv,
                                 char** envp);
 
@@ -161,8 +166,17 @@ void init_memory() {
   memory_info_t* ptr = boot_info->memory;
   boot_info->total_memory = 0;
 
-  ptr->base = &_data_end ;
-  ptr->length = 0x10000;  // 16M
+  u32 heap_start = (u32)&_estack;
+  if (heap_start < ESP32_HEAP_LOW) {
+    heap_start = ESP32_HEAP_LOW;
+  }
+  heap_start = (heap_start + 0xF) & ~0xFU;
+  if (heap_start >= ESP32_DRAM_HIGH) {
+    heap_start = ESP32_DRAM_HIGH;
+  }
+
+  ptr->base = (void*)heap_start;
+  ptr->length = ESP32_DRAM_HIGH - heap_start;
   ptr->type = 1;
   boot_info->total_memory += ptr->length;
   ptr++;
@@ -244,12 +258,7 @@ void init_boot() {
   print_string("init disk\n");
   init_disk();
 
-  BOOT_PUTC('A'); BOOT_NL();
-  BOOT_PUTC('B'); BOOT_NL();
-  BOOT_PUTC('C'); BOOT_NL();
-  BOOT_PUTC('D'); BOOT_NL();
   start_kernel();
-  BOOT_PUTC('E'); BOOT_NL();
 
   for (;;)
     ;
@@ -443,27 +452,18 @@ void start_kernel() {
   // get_segment();
   extern void kstart(int argc, char* argv[], char** envp);
   entry start = kstart;
-  BOOT_PUTC('S'); BOOT_NL();
-  BOOT_PUTC('T'); BOOT_NL();
-  BOOT_PUTC('P'); BOOT_NL();
   kernel_envp[0] = (char*)&boot_data;
-  BOOT_PUTC('Q'); BOOT_NL();
   kernel_envp[1] = 0;
-  BOOT_PUTC('R'); BOOT_NL();
-  BOOT_PUTC('I'); BOOT_NL();
   boot_jump_to_kernel((kernel_entry_fn)start, 0, 0, kernel_envp);
 #else
-  BOOT_PUTC('F'); BOOT_NL();
   cache_read_disable(0);
   cache_flush(0);
 
   for (int i = 0; i < DPORT_FLASH_MMU_TABLE_SIZE; i++) {
     DPORT_PRO_FLASH_MMU_TABLE[i] = DPORT_FLASH_MMU_TABLE_INVALID_VAL;
   }
-  BOOT_PUTC('G'); BOOT_NL();
   boot_info->kernel_entry = load_kernel();
   entry start = boot_info->kernel_entry;
-  BOOT_PUTC('H'); BOOT_NL();
   print_label_hex("kernel entry ", (u32)boot_info->kernel_entry);
   DPORT_REG_CLR_BIT(
       DPORT_PRO_CACHE_CTRL1_REG,
@@ -481,7 +481,6 @@ void start_kernel() {
 
   kernel_envp[0] = (char*)&boot_data;
   kernel_envp[1] = 0;
-  BOOT_PUTC('I'); BOOT_NL();
   boot_jump_to_kernel((kernel_entry_fn)start, 0, 0, kernel_envp);
 #endif
 }
