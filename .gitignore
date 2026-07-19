@@ -88,3 +88,5 @@ ls.txt.c
 */*._*
 .cache/cache.db.bak
 .cache/cache.db
+.cache/cache.db-wal
+.cache/cache.db-shm

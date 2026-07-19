@@ -118,6 +118,17 @@ def add_qemu_deps():
     if has_config('single-kernel'):
         add_deps("kernel.elf")
 
+def build_disk_img(target):
+    disk_img = target.targetfile()
+    if os.exists(disk_img):
+        return
+    print('make disk.img')
+    os.exec('qemu-img create ' + disk_img + ' 512m')
+    if is_host('mac') or is_host('linux'):
+        os.exec('mkfs.vfat -n YIYIYA ' + disk_img)
+    else:
+        os.exec('mformat.exe -i ' + disk_img + ' -n YIYIYA ::')
+
 def run_qemu(plat,debug=False):
 
     def run(target):
@@ -294,21 +305,10 @@ if not plat:
 run_qemu(plat,True)
 
 
-target("disk.img")
+target("disk.img", **{'build-dir': '.'})
+set_filename('image/disk.img')
 
-# def build(target):
-#     os.exec('qemu-img create image/disk.img 512m')
-#     os.exec('mkfs.vfat -n disk image/disk.img')
-#     pass
-
-# on_build(build)
-
-def run(target):
-    print('make disk.img')
-    os.exec('qemu-img create image/disk.img 512m')
-    os.exec('mkfs.vfat -n YIYIYA image/disk.img')
-
-on_run(run)
+on_build(build_disk_img)
 
 
 #v3s 运行
