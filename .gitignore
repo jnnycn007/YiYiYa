@@ -78,3 +78,13 @@ build/**
 **/**/__pycache__/**.pyc
 kernel.txt.c
 ls.txt.c
+**/**/._*
+**/**/._.
+
+**/PaxHeader/
+**/**/PaxHeader/
+.DS_Store
+*.swp
+*/*._*
+.cache/cache.db.bak
+.cache/cache.db

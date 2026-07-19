@@ -179,20 +179,14 @@ def load (target):
     },
         kind= "static"
     )
-    target.add('linkdirs',library.linkdir)
     if library:
-        # print('target=>',target.get('name'))
-        # print('libgcc==>',library)
-        
+        target.add('linkdirs',library.linkdir)
         target.add("ldflags",[
             '-L'+library.linkdir,
             "-l"+library.link
         ],after=True)
 
         print('ldflags=>',target.get('ldflags') )
-        # target.add("ldflags",[
-        #     '-L'+library.linkdir+'/'+library.filename
-        # ])
         target.add("includedir",library.linkdir)
 
 # before_build(load)
@@ -373,6 +367,27 @@ set_kind('lib')
 def config (target):
     arch_type=target.arch_type()
     library=None
+    gcc_cmds = {
+        'arm': 'arm-none-eabi-gcc',
+        'riscv': 'riscv64-unknown-elf-gcc',
+        'xtensa': 'xtensa-esp32-elf-gcc',
+        'arm64': 'aarch64-none-elf-gcc',
+    }
+    gcc = gcc_cmds.get(arch_type)
+    if gcc:
+        try:
+            import subprocess
+            lib = subprocess.check_output(
+                [gcc, '-print-libgcc-file-name'],
+                stderr=subprocess.DEVNULL,
+            ).decode().strip()
+            if lib and os.exists(lib):
+                linkdir = path.directory(lib)
+                target.add("ldflags", ['-L'+linkdir, '-lgcc'])
+                target.add("includedir", linkdir)
+                return
+        except:
+            pass
     if arch_type in['arm']:
         library = find_library("gcc", 
                     [
@@ -409,7 +424,6 @@ def config (target):
             ],
             kind = "static"
             )
-    # print('found gcc lib',library)
     if library:
         target.add("ldflags",[
             '-L'+library.linkdir,

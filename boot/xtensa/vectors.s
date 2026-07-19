@@ -1,4 +1,13 @@
 .global __boot_double_exception
+.extern l2_handler
+.extern l3_handler
+.extern l4_handler
+.extern l5_handler
+.extern debug_excetpion_handler
+.extern nmi_excetpion_handler
+.extern kernel_excetpion_handler
+.extern user_excetpion_handler
+.extern double_excetpion_handler
 
 .section ".window_overflow_4.text", "ax"
 .align 4
@@ -85,45 +94,46 @@ WindowUnderflow12:
 .section ".Level2InterruptVector.text", "ax"
 .align 4
 Level2InterruptVector:
-    j __boot_double_exception
+    j l2_handler
 
 .section ".Level3InterruptVector.text", "ax"
 .align 4
 Level3InterruptVector:
-    j __boot_double_exception
+    j l3_handler
 
 .section ".Level4InterruptVector.text", "ax"
 .align 4
 Level4InterruptVector:
-    j __boot_double_exception
+    j l4_handler
 
 .section ".Level5InterruptVector.text", "ax"
 .align 4
 Level5InterruptVector:
-    j __boot_double_exception
+    j l5_handler
 
 .section ".DebugExceptionVector.text", "ax"
 .align 4
 DebugExceptionVector:
-    j __boot_double_exception
+    j debug_excetpion_handler
 
 .section ".NMIExceptionVector.text", "ax"
 .align 4
 NMIExceptionVector:
-    j __boot_double_exception
+    j nmi_excetpion_handler
 
 .section ".kernel_exception.text", "ax"
 .align 4
 kernel_exception:
-    j __boot_double_exception
+    j kernel_excetpion_handler
 
 .section ".user_exception.text", "ax"
 .align 4
 user_exception:
-    j __boot_double_exception
+    j user_excetpion_handler
 
 .section ".DoubleExceptionVector.text", "ax"
 .align 4
 DoubleExceptionVector:
+    j double_excetpion_handler
 __boot_double_exception:
     j __boot_double_exception

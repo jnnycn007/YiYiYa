@@ -113,6 +113,11 @@ def build_esp32_img(duck_kernel,duck_kernel_bin,kernel_bin_img):
     os.exec('truncate -s 4M '+kernel_bin_img)
 
 #run
+def add_qemu_deps():
+    add_deps("duck.img", "disk.img")
+    if has_config('single-kernel'):
+        add_deps("kernel.elf")
+
 def run_qemu(plat,debug=False):
 
     def run(target):
@@ -238,7 +243,7 @@ def run_qemu(plat,debug=False):
 
 target("debug")
 
-add_deps("duck.img","disk.img")
+add_qemu_deps()
 add_rules("arch")
 
 plat=get_plat()
@@ -252,7 +257,7 @@ run_qemu(plat,True)
 
 target("qemu")
 
-add_deps("duck.img","disk.img")
+add_qemu_deps()
 add_rules("arch")
 
 plat=get_plat()
@@ -264,21 +269,21 @@ run_qemu(plat)
 
 target("raspi2")
 
-add_deps("duck.img","disk.img")
+add_qemu_deps()
 add_rules("arch")
 run_qemu('raspi2')
 
 
 target("raspi3")
 
-add_deps("duck.img","disk.img")
+add_qemu_deps()
 add_rules("arch")
 run_qemu('raspi3')
 
 
 target("raspi3-debug")
 
-add_deps("duck.img","disk.img")
+add_qemu_deps()
 add_rules("arch")
 
 plat=get_plat()

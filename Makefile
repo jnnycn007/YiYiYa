@@ -4,6 +4,10 @@ all: raspi2
 raspi2:
 	ya -m debug -r qemu
 
+raspi2-d:
+	arm-none-eabi-objdump -D build/raspi2/armv7-a/debug/kernel.elf >kernel.txt.c
+	arm-none-eabi-objdump -D build/raspi2/armv7-a/debug/ls >ls.txt.c
+	arm-none-eabi-objdump -D build/raspi2/armv7-a/debug/config >config.txt.c
 v3s:
 	ya -m debug -r v3s -p v3s
 
@@ -15,6 +19,8 @@ i386-pc:
 
 raspi3-d:
 	aarch64-none-elf-objdump -D build/raspi3/armv8-a/debug/kernel.elf >kernel.txt.c
+	aarch64-none-elf-objdump -D build/raspi3/armv8-a/debug/ls >ls.txt.c
+
 raspi3-ls-d:
 	aarch64-none-elf-objdump -D build/raspi3/armv8-a/debug/ls  >ls.txt.c
 esp32:
