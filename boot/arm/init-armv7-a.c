@@ -497,7 +497,25 @@ void init_boot() {
     ;
 }
 
+static void apu_cache_inv(u32 mva) {
+  asm volatile("mcr p15, 0, %0, c7, c6, 1" : : "r"(mva) : "memory");
+}
+
 void init_apu_boot() {
+  while (1) {
+    apu_cache_inv((u32)(uintptr_t)&boot_info);
+    if (boot_info != NULL) {
+      break;
+    }
+    asm volatile("wfe");
+  }
+  while (1) {
+    apu_cache_inv((u32)(uintptr_t)&boot_info->kernel_entry);
+    if (boot_info->kernel_entry != NULL) {
+      break;
+    }
+    asm volatile("wfe");
+  }
   start_apu_kernel();
   for (;;)
     ;
@@ -641,10 +659,14 @@ void start_kernel() {
   extern void kstart(int argc, char* argv[], char** envp);
   entry start = kstart;
   boot_info->kernel_entry = start;
+  asm volatile("dsb" ::: "memory");
+  asm volatile("sev");
   printf("kernel entry %x\n\r", boot_info->kernel_entry);
 #else
   boot_info->kernel_entry = load_kernel();
   entry start = boot_info->kernel_entry;
+  asm volatile("dsb" ::: "memory");
+  asm volatile("sev");
   printf("kernel entry %x\n\r", boot_info->kernel_entry);
   // print_hex(boot_info->kernel_entry);
 #endif
