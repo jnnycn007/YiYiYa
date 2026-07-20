@@ -498,7 +498,6 @@ void init_boot() {
 }
 
 void init_apu_boot() {
-  printf("boot apu info addr %x\n\r", boot_info);
   start_apu_kernel();
   for (;;)
     ;
@@ -659,7 +658,6 @@ void start_kernel() {
 
 // start kernel
 void start_apu_kernel() {
-  printf("start apu kernel entry %x\n\r", boot_info->kernel_entry);
   entry start = boot_info->kernel_entry;
   int argc = 0;
   char** argv = 0;

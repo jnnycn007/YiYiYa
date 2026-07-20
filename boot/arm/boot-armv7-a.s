@@ -62,9 +62,8 @@ apu_entry:
     ldr fp, = _estack
 
     ldr r2,=_stack_other
-    mov r3,#256*4
-    asr r3,r3,r4
-    add r2,r2,r3
+    lsl r3, r4, #11
+    add r2, r2, r3
 
     // set sp in abt mode.
     bic r1, r0, #0x1F
