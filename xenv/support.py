@@ -41,7 +41,8 @@ support_arch_cflags ={
                 '-mfpu=vfpv4',
                 '-mfloat-abi=softfp'
             ],
-    'armv8-a': ['-mcpu=cortex-a53', '-mtune=cortex-a53',],#'-mfpu=vfpv4', '-mfloat-abi=softfp'
+    'armv8-a': ['-mcpu=cortex-a53', '-mtune=cortex-a53',
+            '-Wno-error=implicit-function-declaration','-Wno-error=incompatible-pointer-types','-Wno-error=int-conversion'],#'-mfpu=vfpv4', '-mfloat-abi=softfp'
     'dummy':[],
     'riscv':['-fstack-protector',
             '-nostdlib', '-nostdinc',

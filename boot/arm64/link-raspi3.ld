@@ -8,6 +8,7 @@ SECTIONS
     . = 0x100000;   /* QEMU raspi3b kernel load address (1MB) */
 
     .text : {
+        __start = .;
         KEEP(*(.text.boot))
         /* ARM64 exception vector table must be 2KB (0x800) aligned. */
         . = ALIGN(2048);
@@ -40,6 +41,8 @@ SECTIONS
     _estack = . + __stack_size;        /* Core 0 stack (8KB) */
     _stack_other = _estack;            /* AP stacks follow */
     _sstack = _stack_other + __stack_size * 4;  /* End of all stacks */
+    . = _sstack;
+    __end = .;
 
     /DISCARD/ : { *(.comment) *(.note*) }
 }

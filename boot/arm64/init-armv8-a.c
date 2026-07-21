@@ -332,6 +332,12 @@ void init_boot() {
 }
 
 void init_apu_boot() {
+  while (boot_info == NULL) {
+    asm volatile("wfe" ::: "memory");
+  }
+  while (boot_info->kernel_entry == NULL) {
+    asm volatile("wfe" ::: "memory");
+  }
   printf("boot apu info addr %x\n\r", boot_info);
   start_apu_kernel();
   for (;;)
@@ -421,10 +427,14 @@ void start_kernel() {
   extern void kstart(int argc, char* argv[], char** envp);
   entry start = kstart;
   boot_info->kernel_entry = start;
+  asm volatile("dsb sy" ::: "memory");
+  asm volatile("sev");
   printf("kernel entry %x\n\r", boot_info->kernel_entry);
 #else
   boot_info->kernel_entry = load_kernel();
   entry start = boot_info->kernel_entry;
+  asm volatile("dsb sy" ::: "memory");
+  asm volatile("sev");
   printf("kernel entry %x\n\r", boot_info->kernel_entry);
 #endif
   int argc = 0;
