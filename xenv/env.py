@@ -10,7 +10,7 @@ rule("objcopy-file")
 
 def build(target):
     inputfile = target.targetfile()
-    outputfile = string.gsub(inputfile, "\.elf$", "")
+    outputfile = string.gsub(inputfile, r"\.elf$", "")
     objcopy = target.tool("objcopy")
     os.execv(objcopy, ["-O", "binary", inputfile, outputfile+".bin"])
 
@@ -197,7 +197,7 @@ rule("kernel-objcopy")
 
 def build (target):
     inputfile = target.targetfile()
-    outputfile = string.gsub(inputfile, "\.elf$", "")
+    outputfile = string.gsub(inputfile, r"\.elf$", "")
     objcopy = target.tool("objcopy")
     os.execv(objcopy,["-S",inputfile, outputfile])
     os.execv(objcopy, ["--only-keep-debug", inputfile, outputfile+".dbg"])
@@ -290,7 +290,6 @@ def set_type(type):
     default_libc=get_config('default_libc')
     if default_libc=='musl':
         add_deps('gcc')
-        # add_files(os.projectdir()+'/eggs/libmusl/lib/crt1.o')
         add_cflags(
             '-DDUCK -DDLIBC_POSIX',
              ' -D__LIB_MUSL__ ',

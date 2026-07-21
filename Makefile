@@ -38,6 +38,12 @@ stm32-c:
 	rm -rf build/stm32f4xx/armv7/debug/objs/
 stm32-d:
 	arm-none-eabi-objdump -D build/stm32f4xx/armv7/debug/kernel.elf >kernel.txt.c
+
+
+riscv-virt:
+	ya -m debug -p riscv-virt -r qemu
+
+
 img:
 	qemu-img create  image/disk.img 512m
 	mkfs.vfat -n YIYIYA image/disk.img 
