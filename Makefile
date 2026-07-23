@@ -43,7 +43,9 @@ stm32-d:
 riscv-virt:
 	ya -m debug -p riscv-virt -r qemu
 
-
+t113-s3:
+	ya -m debug -p t113-s3 -b t113-s3
+	
 img:
 	qemu-img create  image/disk.img 512m
 	mkfs.vfat -n YIYIYA image/disk.img 
