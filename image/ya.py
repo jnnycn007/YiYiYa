@@ -146,6 +146,10 @@ def run_qemu(plat,debug=False):
         kernel_bin="build/"+plat+"/"+arch+"/"+mode+"/duck.img"
         disk_img="image/disk.img"
         
+        kernel_elf="build/"+plat+"/"+arch+"/"+mode+"/kernel.elf"
+        if os.exists(kernel_elf):
+            os.cp(kernel_elf, 'app/resource/kernel.elf')
+        
         if is_host('mac'):
             os.exec('hdiutil attach '+disk_img)
             os.cp('app/resource/*', '/Volumes/YIYIYA/')

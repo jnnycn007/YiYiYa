@@ -143,6 +143,7 @@ modules=[
     'musl',
     'gaga',
     'debug',
+    'backtrace',
     'keyboard',
     'log',
     'hello',
