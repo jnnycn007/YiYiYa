@@ -1,7 +1,7 @@
 .section ".text.boot"
 .global _start
 
-.equ stack_size,0x200
+.equ stack_size,0x1000
 
 _start:
     // save CPSR.
@@ -62,7 +62,8 @@ apu_entry:
     ldr fp, = _estack
 
     ldr r2,=_stack_other
-    lsl r3, r4, #11
+    /* per-CPU block = 4 modes * stack_size (0x1000) = 0x4000 */
+    lsl r3, r4, #14
     add r2, r2, r3
 
     // set sp in abt mode.
@@ -92,7 +93,7 @@ apu_entry:
     // set sp in svc mode.
     bic r1, r0, #0x1F
     orr r1, r1, #0x13
-    msr cpsr_c, r0
+    msr cpsr_c, r1
     mov sp, r2
 
     bl init_apu_boot
