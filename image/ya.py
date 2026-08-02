@@ -155,9 +155,9 @@ def run_qemu(plat,debug=False):
             os.cp('app/resource/*', '/Volumes/YIYIYA/')
             os.exec('hdiutil eject /Volumes/YIYIYA')
         elif is_host('linux') :
-            os.shell('mcopy -snmov  -i image/disk.img app/resource/* ::')
+            os.shell('mcopy -snmo  -i image/disk.img app/resource/* ::')
         else:
-            os.exec('mcopy.exe -snmov  -i image/disk.img app/resource/* ::')
+            os.exec('mcopy.exe -snmo  -i image/disk.img app/resource/* ::')
         
 
         run_qemu_cmd=''
